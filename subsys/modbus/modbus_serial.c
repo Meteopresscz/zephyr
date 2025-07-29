@@ -221,8 +221,10 @@ static void modbus_ascii_tx_adu(struct modbus_context *ctx)
 	tx_bytes += 2;
 
 	/* Update the total number of bytes to send */
+	unsigned int key = irq_lock();
 	cfg->uart_buf_ctr = tx_bytes;
 	cfg->uart_buf_ptr = &cfg->uart_buf[0];
+	irq_unlock(key);
 
 	LOG_DBG("Start frame transmission");
 	modbus_serial_rx_off(ctx);
@@ -295,8 +297,10 @@ static void rtu_tx_adu(struct modbus_context *ctx)
 		     &cfg->uart_buf[ctx->tx_adu.length + 2]);
 	tx_bytes += 2;
 
+	unsigned int key = irq_lock();
 	cfg->uart_buf_ctr = tx_bytes;
 	cfg->uart_buf_ptr = &cfg->uart_buf[0];
+	irq_unlock(key);
 
 	LOG_HEXDUMP_DBG(cfg->uart_buf, cfg->uart_buf_ctr, "uart_buf");
 	LOG_DBG("Start frame transmission");
@@ -323,8 +327,10 @@ static void cb_handler_rx(struct modbus_context *ctx)
 
 		if (c == MODBUS_ASCII_START_FRAME_CHAR) {
 			/* Restart a new frame */
+			unsigned int key = irq_lock();
 			cfg->uart_buf_ptr = &cfg->uart_buf[0];
 			cfg->uart_buf_ctr = 0;
+			irq_unlock(key);
 		}
 
 		if (cfg->uart_buf_ctr < CONFIG_MODBUS_BUFFER_SIZE) {
@@ -377,7 +383,9 @@ static void cb_handler_tx(struct modbus_context *ctx)
 	 */
 	if (uart_irq_tx_complete(cfg->dev)) {
 		/* Disable transmission */
+		unsigned int key = irq_lock();
 		cfg->uart_buf_ptr = &cfg->uart_buf[0];
+		irq_unlock(key);
 		modbus_serial_tx_off(ctx);
 		modbus_serial_rx_on(ctx);
 	}
@@ -481,8 +489,10 @@ int modbus_serial_rx_adu(struct modbus_context *ctx)
 		return -ENOTSUP;
 	}
 
+	unsigned int key = irq_lock();
 	cfg->uart_buf_ctr = 0;
 	cfg->uart_buf_ptr = &cfg->uart_buf[0];
+	irq_unlock(key);
 
 	return rc;
 }
@@ -581,8 +591,10 @@ int modbus_serial_init(struct modbus_context *ctx,
 		return -EIO;
 	}
 
+	unsigned int key = irq_lock();
 	cfg->uart_buf_ctr = 0;
 	cfg->uart_buf_ptr = &cfg->uart_buf[0];
+	irq_unlock(key);
 
 	uart_irq_callback_user_data_set(cfg->dev, uart_cb_handler, ctx);
 	k_timer_init(&cfg->rtu_timer, rtu_tmr_handler, NULL);
